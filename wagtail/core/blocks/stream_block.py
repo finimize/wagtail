@@ -477,3 +477,7 @@ class StreamValue(Sequence):
 
     def __str__(self):
         return self.__html__()
+
+    def __getnewargs_ex__(self):
+        return ((self.stream_block, self.stream_data), {"is_lazy": self.is_lazy, "raw_text": self.raw_text})
+

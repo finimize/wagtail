@@ -414,6 +414,44 @@ class Block(metaclass=BaseBlock):
         return (self.name == other.name) and (self.deconstruct() == other.deconstruct())
 
 
+    def __getstate__(self):
+        """Hook to allow choosing the attributes to pickle."""
+        state = self.__dict__.copy()
+
+        if "meta" in state and hasattr(state["meta"], "__dict__"):
+            state["meta"] = state["meta"].__dict__
+
+        if "dependencies" in state:
+            state["dependencies"] = list(state["dependencies"])
+
+        if (
+            "field" in state
+            and hasattr(state["field"], "choices")
+            and isinstance(state["field"].choices, CallableChoiceIterator)
+        ):
+            state["field"].choices = list(state["field"].choices)
+
+        return state
+
+    def __setstate__(self, state):
+        from collections import OrderedDict
+        self.meta = self._meta_class()
+
+        if 'meta' in state:
+            self.meta.__dict__.update(state.pop('meta'))
+
+        if "dependencies" in state:
+            deps = OrderedDict([])
+            for idx, x in enumerate(state["dependencies"]):
+                deps[idx] = x
+            state["dependencies"] = deps.values()
+
+        if "field" in state and hasattr(state["field"], "choices"):
+            state["field"].choices = CallableChoiceIterator(state["field"].choices)
+
+        self.__dict__.update(state)
+
+
 class BoundBlock:
     def __init__(self, block, value, prefix=None, errors=None):
         self.block = block
