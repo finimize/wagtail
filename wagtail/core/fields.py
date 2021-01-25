@@ -73,10 +73,14 @@ class StreamField(models.Field):
         return name, path, args, kwargs
 
     def to_python(self, value):
-        if value is None or value == '':
-            return StreamValue(self.stream_block, [])
+        if value is None or value == "":
+            ret = StreamValue(self.stream_block, [])
+            ret._field = self
+            return ret
         elif isinstance(value, StreamValue):
-            return value
+            ret = value
+            ret._field = self
+            return ret
         elif isinstance(value, str):
             try:
                 unpacked_value = json.loads(value)
@@ -86,15 +90,21 @@ class StreamField(models.Field):
                 # was left intact in the migration. Return an empty stream instead
                 # (but keep the raw text available as an attribute, so that it can be
                 # used to migrate that data to StreamField)
-                return StreamValue(self.stream_block, [], raw_text=value)
+                ret = StreamValue(self.stream_block, [], raw_text=value)
+                ret._field = self
+                return ret
 
             if unpacked_value is None:
                 # we get here if value is the literal string 'null'. This should probably
                 # never happen if the rest of the (de)serialization code is working properly,
                 # but better to handle it just in case...
-                return StreamValue(self.stream_block, [])
+                ret = StreamValue(self.stream_block, [])
+                ret._field = self
+                return ret
 
-            return self.stream_block.to_python(unpacked_value)
+            ret = self.stream_block.to_python(unpacked_value)
+            ret._field = self
+            return ret
         else:
             # See if it looks like the standard non-smart representation of a
             # StreamField value: a list of (block_name, value) tuples
@@ -102,10 +112,15 @@ class StreamField(models.Field):
                 [None for (x, y) in value]
             except (TypeError, ValueError):
                 # Give up trying to make sense of the value
-                raise TypeError("Cannot handle %r (type %r) as a value of StreamField" % (value, type(value)))
+                raise TypeError(
+                    "Cannot handle %r (type %r) as a value of StreamField"
+                    % (value, type(value))
+                )
 
             # Test succeeded, so return as a StreamValue-ified version of that value
-            return StreamValue(self.stream_block, value)
+            ret = StreamValue(self.stream_block, value)
+            ret._field = self
+            return ret
 
     def get_prep_value(self, value):
         if isinstance(value, StreamValue) and not(value) and value.raw_text is not None:
