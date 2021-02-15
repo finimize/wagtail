@@ -97,3 +97,11 @@ class HTMLRuleset():
         for precedence, attr_check, result in rules_to_test:
             if attr_check(attrs):
                 return result
+
+    def __getstate__(self):
+        '''
+        When pickling this object (for caching) we ignore these rules, hence
+        returning an empty dictionary in place of real state. Without this,
+        we get pickle errors when trying to cache ContentPiece objects.
+        '''
+        return {}

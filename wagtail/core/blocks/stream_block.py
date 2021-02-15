@@ -9,6 +9,7 @@ from django.template.loader import render_to_string
 from django.utils.html import format_html_join
 from django.utils.safestring import mark_safe
 from django.utils.translation import gettext as _
+from django.db.models.fields import _load_field
 
 from wagtail.admin.staticfiles import versioned_static
 from wagtail.core.utils import escape_script
@@ -477,3 +478,23 @@ class StreamValue(Sequence):
 
     def __str__(self):
         return self.__html__()
+
+    def _stream_value_loader(app_label, model_name, field_name, field_value):
+        """Returns StreamValue from pickled data"""
+        stream_field = _load_field(app_label, model_name, field_name)
+        stream_value = stream_field.stream_block.to_python(field_value)
+        stream_value._field = stream_field
+        return stream_value
+
+    def __reduce__(self) -> tuple:
+        """Reducer to make this class pickleable."""
+        return (
+            StreamValue._stream_value_loader,
+            (
+                self._field.model._meta.app_label,
+                self._field.model._meta.object_name,
+                self._field.name,
+                self.get_prep_value(),
+            ),
+        )
+
